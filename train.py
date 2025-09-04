@@ -1,50 +1,29 @@
-import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 import joblib
 import os
 
-# -------------------------------
-# Create synthetic dataset
-# -------------------------------
-rows = []
+df = pd.read_csv('Crop_recommendation.csv')
+df = df.drop(columns=['P', 'K'], errors='ignore')
+df = df.dropna()
+df['rainfall'] = df['rainfall'] / df['rainfall'].max() * 10
 
-for ph in [5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0]:
-    for n in [50, 70, 90, 110, 130, 150, 170, 190, 200]:
-        for rain in range(0, 11):  # realistic rainfall 0-10 mm/h
-            # Crop assignment rules
-            if ph > 6.5 and rain > 5 and n > 100:
-                crop = 'Paddy'
-            elif n > 150 and rain < 5:
-                crop = 'Maize'
-            elif ph < 6.0 and rain < 3:
-                crop = 'Millets'
-            elif ph >= 6.0 and ph <= 7.0 and rain < 4 and n <= 120:
-                crop = 'Wheat'
-            elif ph > 7.0 and rain > 2:
-                crop = 'Barley'
-            elif rain > 7:
-                crop = 'Sugarcane'
-            elif n > 130 and ph < 7.0:
-                crop = 'Soybean'
-            else:
-                crop = 'Groundnut'
-            rows.append({'pH': ph, 'N': n, 'rain': rain, 'crop': crop})
+X = df[['N', 'temperature', 'humidity', 'ph', 'rainfall']]
+y = df['label']
 
-# Create DataFrame
-df = pd.DataFrame(rows)
-X = df[['pH', 'N', 'rain']]
-y = df['crop']
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
 
-# -------------------------------
-# Train model
-# -------------------------------
-clf = RandomForestClassifier(n_estimators=50, random_state=42)
-clf.fit(X, y)
+model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+model.fit(X_train, y_train)
 
-# -------------------------------
-# Save model
-# -------------------------------
+y_pred = model.predict(X_test)
+print("Accuracy on test set:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+
 os.makedirs('models', exist_ok=True)
-joblib.dump(clf, 'models/crop_recommender.pkl')
-print("Model saved to models/crop_recommender.pkl")
+joblib.dump(model, 'models/crop_recommender.pkl')
+print("Model saved as 'models/crop_recommender.pkl'")
